@@ -103,7 +103,7 @@ body.mode3 #wrap3{display:block}body.mode3 #wrap{display:none}
    <p>STL, OBJ, PLY, GLB / glTF, 3MF — se deschide local, în browser.</p>
    <div class="row"><label class="btn pri" for="file">Deschide fișier</label><button id="bDemo3">Exemplu</button></div>
   </div></div>
-  <div id="load3" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:var(--mut)">Se încarcă…</div>
+  <div id="load3" style="position:absolute;inset:0;display:none;align-items:center;justify-content:center;text-align:center;padding:20px;color:var(--mut);background:var(--bg);z-index:3;pointer-events:none"></div>
  </div>
  <aside id="side"></aside>
 </div>
@@ -545,11 +545,12 @@ const CDN='https://cdn.jsdelivr.net/npm/three@0.128.0/';
 function setMode(m){
  mode=m;document.body.classList.toggle('mode3',m==='3d');
  $('#t2').classList.toggle('on',m==='2d');$('#t3').classList.toggle('on',m==='3d');
- if(m==='3d')ensure3D().then(()=>{resize3();render3();}).catch(e=>showErr(e.message));
+ if(m==='3d'){if(!T3)status3('Se încarcă motorul 3D…');ensure3D().then(()=>{status3('');resize3();render3();}).catch(e=>status3('⚠️ '+e.message,true));}
  renderSide();
 }
 $('#t2').onclick=()=>setMode('2d');$('#t3').onclick=()=>setMode('3d');
-function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Nu pot încărca '+src.split('/').pop()));document.head.appendChild(s);});}
+function status3(t,err){const el=$('#load3');el.textContent=t;el.style.display=t?'flex':'none';el.style.color=err?'#e0a040':'';el.style.pointerEvents=err?'auto':'none';}
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;const to=setTimeout(()=>rej(new Error('Timeout la încărcarea '+src.split('/').pop())),20000);s.onload=()=>{clearTimeout(to);res();};s.onerror=()=>{clearTimeout(to);rej(new Error('Nu pot încărca '+src.split('/').pop()+' (verifică internetul)'));};document.head.appendChild(s);});}
 function ensure3D(){
  if(threeP)return threeP;
  threeP=(async()=>{
@@ -563,7 +564,7 @@ function ensure3D(){
 }
 function init3(){
  const el=$('#wrap3');
- const renderer=new THREE.WebGLRenderer({antialias:true});
+ let renderer;try{renderer=new THREE.WebGLRenderer({antialias:true});}catch(e){throw new Error('Browserul nu suportă WebGL — modul 3D nu poate rula aici.');}
  renderer.setPixelRatio(Math.min(2,devicePixelRatio||1));renderer.outputEncoding=THREE.sRGBEncoding;
  el.appendChild(renderer.domElement);
  const scene=new THREE.Scene();
@@ -595,10 +596,9 @@ function parse3(buf,ext){
  });
 }
 async function load3D(f,ext){
- setMode('3d');$('#load3').style.display='flex';
- try{await ensure3D();const buf=await f.arrayBuffer();show3(await parse3(buf,ext),f.name,ext);}
- catch(e){console.error(e);showErr('Eroare 3D: '+e.message);}
- finally{$('#load3').style.display='none';}
+ setMode('3d');status3('Se încarcă '+f.name+'…');
+ try{await ensure3D();const buf=await f.arrayBuffer();show3(await parse3(buf,ext),f.name,ext);status3('');}
+ catch(e){console.error(e);status3('⚠️ Eroare 3D: '+e.message,true);}
 }
 function disposeObj(o){o.traverse(m=>{if(m.geometry)m.geometry.dispose();if(m.material)[].concat(m.material).forEach(x=>x.dispose());});}
 function show3(obj,name,ext){
@@ -669,7 +669,7 @@ $('#vSel').onchange=e=>{if(e.target.value)fit3(e.target.value);e.target.value=''
 $('#bWire').onclick=()=>{if(!T3)return;T3.wire=!T3.wire;$('#bWire').classList.toggle('on',T3.wire);if(m3)m3.holder.traverse(o=>{if(o.material)[].concat(o.material).forEach(x=>{if('wireframe' in x)x.wireframe=T3.wire;});});render3();};
 $('#bUp').onclick=()=>{if(!m3)return;m3.upY=!m3.upY;applyUp();fit3('iso');};
 $('#bDemo3').onclick=async()=>{
- try{await ensure3D();}catch(e){showErr(e.message);return;}
+ try{await ensure3D();}catch(e){status3('⚠️ '+e.message,true);return;}
  const sh=new THREE.Shape(),w=80,h=50,r=6;
  sh.moveTo(r,0);sh.lineTo(w-r,0);sh.absarc(w-r,r,r,-Math.PI/2,0);sh.lineTo(w,h-r);sh.absarc(w-r,h-r,r,0,Math.PI/2);sh.lineTo(r,h);sh.absarc(r,h-r,r,Math.PI/2,Math.PI);sh.lineTo(0,r);sh.absarc(r,r,r,Math.PI,Math.PI*1.5);
  for(const [x,y] of [[8,8],[72,8],[8,42],[72,42]]){const p=new THREE.Path();p.absarc(x,y,3,0,PI2,true);sh.holes.push(p);}
